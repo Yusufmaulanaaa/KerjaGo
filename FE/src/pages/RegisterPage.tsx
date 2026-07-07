@@ -11,23 +11,21 @@ export default function RegisterPage() {
   const [role, setRole] = useState<UserRole>('pencari-kerja');
   const [companyName, setCompanyName] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !password) {
       alert('Please fill in all fields');
       return;
     }
-    register({
-      id: Date.now().toString(),
-      name,
-      email,
-      role,
-      companyName: role === 'perusahaan' ? companyName || 'My Company' : undefined,
-    });
-    if (role === 'perusahaan') {
-      navigate('/dashboard');
-    } else {
-      navigate('/');
+    try {
+      await register(name, email, password, role, companyName || undefined);
+      if (role === 'perusahaan') {
+        navigate('/dashboard');
+      } else {
+        navigate('/');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Registrasi gagal');
     }
   };
 

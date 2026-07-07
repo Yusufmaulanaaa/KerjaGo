@@ -1,13 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useJobs } from '../context/JobContext';
-import type { UserProfile } from '../context/JobContext';
+import type { UserProfile } from '../types';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+import RekomendasiJobs from '../components/profile/RekomendasiJobs';
+import QuizKarir from '../components/profile/QuizKarir';
 
 export default function ProfilePage() {
-  const { auth, profile, setProfile } = useJobs();
+  const { auth, profile, fetchProfile, updateProfile } = useJobs();
   const navigate = useNavigate();
+
+  // Fetch profile from backend on mount
+  useEffect(() => {
+    if (auth) {
+      fetchProfile();
+    }
+  }, [auth]);
 
   // If not logged in, redirect to login
   useEffect(() => {
@@ -30,7 +39,6 @@ export default function ProfilePage() {
     setForm((prev) => ({
       ...prev,
       role: nextRole,
-      // Swap fields safely — preserve existing data for both roles
     }));
     setSaved(false);
   };
@@ -38,7 +46,6 @@ export default function ProfilePage() {
   const resetProfile = () => {
     if (window.confirm('Reset profil akan menghapus semua data profil. Lanjutkan?')) {
       localStorage.removeItem('kerjago_profile');
-      setProfile(null);
       setForm({
         role: simulatedRole,
         name: auth?.name || '',
@@ -101,7 +108,7 @@ export default function ProfilePage() {
     setForm((prev) => ({ ...prev, cvFile: file.name }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
@@ -124,13 +131,15 @@ export default function ProfilePage() {
       return;
     }
 
-    // Simulate save delay
-    setTimeout(() => {
-      setProfile({ ...form, role: simulatedRole });
-      setSaving(false);
+    try {
+      await updateProfile({ ...form, role: simulatedRole });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    }, 300);
+    } catch (err: any) {
+      alert('Gagal menyimpan profil: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!auth) return null;
@@ -494,6 +503,16 @@ export default function ProfilePage() {
                   )}
                 </button>
               </div>
+
+              {/* Quiz Karir — Preferensi SPK */}
+              {simulatedRole === 'jobseeker' && (
+                <div className="mt-2">
+                  <QuizKarir />
+                </div>
+              )}
+
+              {/* SPK Rekomendasi Pekerjaan */}
+              {simulatedRole === 'jobseeker' && <RekomendasiJobs />}
             </div>
           </div>
         </form>

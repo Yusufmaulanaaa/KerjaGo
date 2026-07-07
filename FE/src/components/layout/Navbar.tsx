@@ -22,6 +22,11 @@ export default function Navbar() {
 
   const roleLabel = auth?.role === 'perusahaan' ? 'Perusahaan' : 'Pencari Kerja';
 
+  // Navigasi berbeda untuk perusahaan vs pencari kerja
+  const navLinks = auth?.role === 'perusahaan'
+    ? ['Home', 'Find Candidates', 'Career Notes']
+    : ['Home', 'Find Jobs', 'Job Alerts', 'SPK Rekomendasi', 'Career Notes'];
+
   return (
     <nav className="flex items-center justify-between px-8 py-4 max-w-7xl mx-auto">
       {/* Logo */}
@@ -32,10 +37,10 @@ export default function Navbar() {
 
       {/* Nav Links — underline hover */}
       <div className="hidden md:flex items-center gap-8 text-gray-500 font-medium text-sm">
-        {['Home', 'Find Jobs', 'Job Alerts', 'Find Candidates', 'Career Notes'].map((label) => (
+        {navLinks.map((label) => (
           <Link
             key={label}
-            to={label === 'Home' ? '/' : '/' + label.toLowerCase().replace(/\s+/g, '-')}
+            to={label === 'Home' ? '/' : label === 'SPK Rekomendasi' ? '/spk-rekomendasi' : '/' + label.toLowerCase().replace(/\s+/g, '-')}
             className="relative after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 hover:after:w-full after:bg-lime-500 after:transition-all after:duration-300 hover:text-brand-dark transition-colors"
           >
             {label}

@@ -1,6 +1,6 @@
 import { useJobs } from '../../context/JobContext';
-import JobCard from '../JobCard';
-import type { Job } from '../../context/JobContext';
+import JobCard from '../common/JobCard';
+import type { Job } from '../../types';
 
 interface TrendingJobsProps {
   onSelectJob?: (job: Job) => void;

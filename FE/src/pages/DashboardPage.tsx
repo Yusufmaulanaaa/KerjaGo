@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useJobs, type Job } from '../context/JobContext';
+import SPKDashboard from '../components/dashboard/SPKDashboard';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -8,7 +9,7 @@ export default function DashboardPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
-  const [tab, setTab] = useState<'jobs' | 'applicants'>('jobs');
+  const [tab, setTab] = useState<'jobs' | 'applicants' | 'spk'>('jobs');
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
@@ -60,51 +61,62 @@ export default function DashboardPage() {
     setShowModal(true);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle || !formCompany || !formLocation || !formSalary || !formDescription) {
       alert('Please fill in all required fields');
       return;
     }
 
-    if (editingJob) {
-      updateJob(editingJob.id, {
-        title: formTitle,
-        company: formCompany,
-        location: formLocation,
-        salary: formSalary,
-        type: formType,
-        description: formDescription,
-        category: formCategory,
-      });
-      alert('Job updated successfully!');
-    } else {
-      addJob({
-        title: formTitle,
-        company: formCompany,
-        companyLogo: formCompany.charAt(0).toUpperCase(),
-        location: formLocation,
-        salary: formSalary,
-        type: formType,
-        description: formDescription,
-        category: formCategory,
-        verified: true,
-        featured: true,
-        distance: 0,
-        education: 'Sarjana (S1)',
-        requirements: [],
-      });
-      alert('Job created successfully!');
-    }
+    try {
+      if (editingJob) {
+        await updateJob(editingJob.id, {
+          title: formTitle,
+          company: formCompany,
+          location: formLocation,
+          salary: formSalary,
+          type: formType,
+          description: formDescription,
+          category: formCategory,
+        });
+        alert('Job updated successfully!');
+      } else {
+        await addJob({
+          title: formTitle,
+          company: formCompany,
+          companyLogo: formCompany.charAt(0).toUpperCase(),
+          location: formLocation,
+          salary: formSalary,
+          type: formType,
+          description: formDescription,
+          category: formCategory,
+          verified: true,
+          featured: true,
+          distance: 0,
+          distance_label: '',
+          education: 'Sarjana (S1)',
+          education_label: 'Sarjana (S1)',
+          id_lowongan: 0,
+          requirements: [],
+        });
+        alert('Job created successfully!');
+      }
 
-    setShowModal(false);
-    setEditingJob(null);
+      setShowModal(false);
+      setEditingJob(null);
+    } catch (err) {
+      alert('Gagal menyimpan data lowongan. Silakan coba lagi.');
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this job?')) {
-      deleteJob(id);
-      alert('Job deleted successfully!');
+      try {
+        await deleteJob(id);
+        alert('Job deleted successfully!');
+      } catch (err) {
+        alert('Gagal menghapus lowongan. Silakan coba lagi.');
+      }
     }
   };
 
@@ -194,6 +206,14 @@ export default function DashboardPage() {
             onClick={() => setTab('applicants')}
           >
             Applicants ({applicants.length})
+          </button>
+          <button
+            className={`px-5 py-2 text-sm font-medium rounded-md transition-all ${
+              tab === 'spk' ? 'bg-white shadow-sm text-brand-dark' : 'text-gray-500'
+            }`}
+            onClick={() => setTab('spk')}
+          >
+            SPK Analysis
           </button>
         </div>
 
@@ -358,6 +378,11 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* SPK Analysis */}
+        {tab === 'spk' && (
+          <SPKDashboard />
         )}
       </div>
 

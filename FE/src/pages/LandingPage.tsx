@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import HeroSection from '../components/home/HeroSection';
 import TrendingJobs from '../components/home/TrendingJobs';
@@ -8,11 +9,20 @@ import Testimonials from '../components/home/Testimonials';
 import GetMatched from '../components/home/GetMatched';
 import Newsletter from '../components/common/Newsletter';
 import Footer from '../components/layout/Footer';
-import JobCard from '../components/JobCard';
+import JobCard from '../components/common/JobCard';
 import { useJobs, type Job } from '../context/JobContext';
 
 export default function LandingPage() {
-  const { jobs } = useJobs();
+  const { jobs, auth } = useJobs();
+  const navigate = useNavigate();
+
+  // Redirect perusahaan ke dashboard
+  useEffect(() => {
+    if (auth?.role === 'perusahaan') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [auth, navigate]);
+
   const [keyword, setKeyword] = useState('');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [location, setLocation] = useState('');

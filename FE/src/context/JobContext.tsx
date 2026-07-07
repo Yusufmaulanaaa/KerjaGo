@@ -1,84 +1,33 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import api from '../lib/axios';
+import { JOB_API, STORAGE_KEYS } from '../constants';
+import type { Job, Applicant, UserRole, AuthUser, UserProfile } from '../types';
 
-export interface Job {
-  id: string;
-  title: string;
-  company: string;
-  companyLogo: string;
-  location: string;
-  salary: string;
-  type: string;
-  description: string;
-  category: string;
-  verified: boolean;
-  featured: boolean;
-  distance: number;
-  education: string;
-  requirements: string[];
-}
-
-export interface Applicant {
-  id: string;
-  jobId: string;
-  name: string;
-  email: string;
-  candidateType: string;
-  proposal: string;
-  appliedAt: string;
-  cvFile?: string;
-  avatar?: string;
-  status?: 'pending' | 'diterima' | 'ditolak';
-}
-
-export type UserRole = 'pencari-kerja' | 'perusahaan';
-
-export interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  companyName?: string;
-}
-
-export interface UserProfile {
-  role: 'jobseeker' | 'recruiter';
-  name: string;
-  email: string;
-  phone: string;
-  avatar: string;
-  // Khusus Jobseeker
-  pendidikan?: string;
-  riwayatKerja?: string;
-  pengalamanTahun?: number;
-  cvFile?: string;
-  // Khusus Recruiter
-  companyName?: string;
-  companyDesc?: string;
-  companyLocation?: string;
-}
+// Re-export types for backward compatibility
+export type { Job, Applicant, UserRole, AuthUser, UserProfile };
 
 interface JobContextType {
   jobs: Job[];
   applicants: Applicant[];
   auth: AuthUser | null;
   profile: UserProfile | null;
-  fetchJobs: (filters?: { search?: string; education?: string; maxDistance?: number }) => Promise<void>;
+  loading: boolean;
+  fetchJobs: (filters?: Record<string, any>) => Promise<void>;
   addJob: (job: Omit<Job, 'id'>) => Promise<void>;
-  updateJob: (id: string, job: Partial<Job>) => void;
-  deleteJob: (id: string) => void;
+  updateJob: (id: string, job: Partial<Job>) => Promise<void>;
+  deleteJob: (id: string) => Promise<void>;
   addApplicant: (applicant: Omit<Applicant, 'id' | 'appliedAt'>) => void;
-  login: (user: AuthUser) => void;
-  register: (user: AuthUser) => void;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  register: (name: string, email: string, password: string, role: UserRole, companyName?: string) => Promise<AuthUser>;
   logout: () => void;
-  setProfile: (profile: UserProfile | null) => void;
+  fetchProfile: () => Promise<void>;
+  updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
   updateApplicantStatus: (id: string, status: 'pending' | 'diterima' | 'ditolak') => void;
   deleteApplicant: (id: string) => void;
   updateApplicantJobId: (oldJobId: string, newJobId: string) => void;
 }
 
 const JobContext = createContext<JobContextType | null>(null);
-
-const API_BASE = 'http://localhost:5000/api/jobs';
 
 const defaultApplicants: Applicant[] = [];
 
@@ -96,43 +45,65 @@ export function JobProvider({ children }: { children: ReactNode }) {
   const [applicants, setApplicants] = useState<Applicant[]>(() => loadFromStorage('kerjago_applicants', defaultApplicants));
   const [auth, setAuth] = useState<AuthUser | null>(() => loadFromStorage('kerjago_auth', null));
   const [profile, setProfile] = useState<UserProfile | null>(() => loadFromStorage('kerjago_profile', null));
+  const [loading, setLoading] = useState(false);
 
-  // ── Fetch jobs from API ──
+  // ── Fetch jobs from API via axios ──
   const fetchJobs = async (filters?: {
     search?: string;
     education?: string;
-    maxDistance?: number;
+    maxDistance?: string;
   }) => {
     try {
       const params = new URLSearchParams();
       if (filters?.search) params.set('search', filters.search);
       if (filters?.education && filters.education !== 'Semua') params.set('education', filters.education);
-      if (filters?.maxDistance !== undefined) params.set('maxDistance', String(filters.maxDistance));
+      if (filters?.maxDistance && filters.maxDistance !== 'Semua') params.set('maxDistance', filters.maxDistance);
 
-      const url = `${API_BASE}${params.toString() ? `?${params.toString()}` : ''}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: Job[] = await res.json();
-      setJobs(data);
-    } catch (err) {
-      console.error('Failed to fetch jobs:', err);
+      const res = await api.get(`${JOB_API}${params.toString() ? `?${params.toString()}` : ''}`);
+      console.log("Data dari backend:", res.data);
+
+      // Backend mengembalikan { success: true, data: [...] }
+      if (res.data && Array.isArray(res.data.data)) {
+        // Mapping dari backend → frontend interface
+        const mapped = res.data.data.map((item: any) => ({
+          id: String(item.id_lowongan),
+          id_lowongan: item.id_lowongan,
+          title: item.judul_pekerjaan || '',
+          company: item.nama_perusahaan || '',
+          companyLogo: (item.nama_perusahaan || '')[0] || '?',
+          location: item.jarak || '',
+          salary: item.gaji || '',
+          type: item.tipe_pekerjaan || '',
+          description: item.deskripsi || '',
+          category: item.kategori || 'Umum',
+          verified: false,
+          featured: false,
+          distance: item.id_jarak ?? 0,
+          distance_label: item.jarak || '',
+          education: item.pendidikan || '',
+          education_label: item.pendidikan || '',
+          requirements: [],
+        }));
+        setJobs(mapped);
+      } else {
+        console.error('Unexpected API response structure:', res.data);
+        setJobs([]);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch jobs:', err.message);
+      throw err; // Rethrow agar bisa di-catch oleh pemanggil (FindJobsPage)
     }
   };
 
-  // Fetch on mount
+  // ── Fetch on mount ──
   useEffect(() => {
     fetchJobs();
   }, []);
 
-  // ── Add job via API ──
+  // ── Add job via API via axios ──
   const addJob = async (job: Omit<Job, 'id'>) => {
     try {
-      const res = await fetch(API_BASE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(job),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await api.post(JOB_API, job);
       // Refetch to stay in sync with server
       await fetchJobs();
     } catch (err) {
@@ -140,13 +111,22 @@ export function JobProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateJob = (id: string, updated: Partial<Job>) => {
-    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...updated } : j)));
+  const updateJob = async (id: string, updated: Partial<Job>) => {
+    try {
+      await api.put(`${JOB_API}/${id}`, updated);
+      await fetchJobs();
+    } catch (err) {
+      console.error('Failed to update job:', err);
+    }
   };
 
-  const deleteJob = (id: string) => {
-    setJobs((prev) => prev.filter((j) => j.id !== id));
-    setApplicants((prev) => prev.filter((a) => a.jobId !== id));
+  const deleteJob = async (id: string) => {
+    try {
+      await api.delete(`${JOB_API}/${id}`);
+      await fetchJobs();
+    } catch (err) {
+      console.error('Failed to delete job:', err);
+    }
   };
 
   const addApplicant = (applicant: Omit<Applicant, 'id' | 'appliedAt'>) => {
@@ -159,9 +139,176 @@ export function JobProvider({ children }: { children: ReactNode }) {
     setApplicants((prev) => [newApplicant, ...prev]);
   };
 
-  const login = (user: AuthUser) => setAuth(user);
-  const register = (user: AuthUser) => setAuth(user);
-  const logout = () => setAuth(null);
+  // ── Login via Backend API via axios ──
+  const login = async (email: string, password: string): Promise<AuthUser> => {
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const json = response.data;
+      if (!json.success) throw new Error(json.message || 'Login gagal');
+
+      const userData = json.data;
+      const authUser: AuthUser = {
+        id: userData.id_user,
+        name: userData.nama,
+        email: userData.email,
+        role: (userData.role === 'perusahaan' || userData.role === 'rekruter') ? 'perusahaan' : 'pencari-kerja',
+        companyName: userData.company_name || undefined,
+      };
+
+      setAuth(authUser);
+      localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(authUser));
+
+      // Simpan profile juga
+      const userProfile: UserProfile = {
+        role: (userData.role === 'perusahaan' || userData.role === 'rekruter') ? 'recruiter' : 'jobseeker',
+        name: userData.nama,
+        email: userData.email,
+        phone: userData.phone || '',
+        avatar: userData.avatar || '',
+        pendidikan: userData.pendidikan || '',
+        riwayatKerja: userData.riwayat_kerja || '',
+        pengalamanTahun: userData.pengalaman_tahun || undefined,
+        cvFile: userData.cv_file || '',
+        companyName: userData.company_name || '',
+        companyDesc: userData.company_desc || '',
+        companyLocation: userData.company_location || '',
+      };
+      setProfile(userProfile);
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
+
+      return authUser;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Register via Backend API via axios ──
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    role: UserRole,
+    _companyName?: string
+  ): Promise<AuthUser> => {
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/register', {
+        nama: name,
+        email,
+        password,
+        role: role === 'perusahaan' ? 'perusahaan' : 'pelamar',
+        company_name: role === 'perusahaan' ? _companyName : undefined,
+      });
+      const json = response.data;
+      if (!json.success) throw new Error(json.message || 'Registrasi gagal');
+
+      const userData = json.data;
+      const authUser: AuthUser = {
+        id: userData.id_user,
+        name: userData.nama,
+        email: userData.email,
+        role: (userData.role === 'perusahaan' || userData.role === 'rekruter') ? 'perusahaan' : 'pencari-kerja',
+        companyName: userData.company_name || undefined,
+      };
+
+      setAuth(authUser);
+      localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(authUser));
+
+      const userProfile: UserProfile = {
+        role: (userData.role === 'perusahaan' || userData.role === 'rekruter') ? 'recruiter' : 'jobseeker',
+        name: userData.nama,
+        email: userData.email,
+        phone: userData.phone || '',
+        avatar: userData.avatar || '',
+        pendidikan: userData.pendidikan || '',
+        riwayatKerja: userData.riwayat_kerja || '',
+        pengalamanTahun: userData.pengalaman_tahun || undefined,
+        cvFile: userData.cv_file || '',
+        companyName: userData.company_name || '',
+        companyDesc: userData.company_desc || '',
+        companyLocation: userData.company_location || '',
+      };
+      setProfile(userProfile);
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
+
+      return authUser;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Logout ──
+  const logout = () => {
+    setAuth(null);
+    setProfile(null);
+    localStorage.removeItem('kerjago_auth');
+    localStorage.removeItem('kerjago_profile');
+  };
+
+  // ── Fetch Profile dari Backend ──
+  const fetchProfile = async () => {
+    if (!auth) return;
+    try {
+      const res = await api.get('/auth/profile', {
+        headers: { 'x-user-id': auth.id },
+      });
+      const json = res.data;
+      if (!json.success) return;
+
+      const userData = json.data;
+      const userProfile: UserProfile = {
+        role: userData.role === 'perusahaan' ? 'recruiter' : 'jobseeker',
+        name: userData.nama,
+        email: userData.email,
+        phone: userData.phone || '',
+        avatar: userData.avatar || '',
+        pendidikan: userData.pendidikan || '',
+        riwayatKerja: userData.riwayat_kerja || '',
+        pengalamanTahun: userData.pengalaman_tahun || undefined,
+        cvFile: userData.cv_file || '',
+        companyName: userData.company_name || '',
+        companyDesc: userData.company_desc || '',
+        companyLocation: userData.company_location || '',
+      };
+      setProfile(userProfile);
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
+    } catch (err) {
+      console.error('Gagal fetch profile:', err);
+    }
+  };
+
+  // ── Update Profile via Backend API via axios ──
+  const updateProfile = async (data: Partial<UserProfile>) => {
+    if (!auth) return;
+    try {
+      const body: Record<string, any> = {};
+      // Sertakan id_user agar backend bisa identifikasi user tanpa UUID header
+      body.id_user = auth.id;
+      if (data.name !== undefined) body.nama = data.name;
+      if (data.phone !== undefined) body.phone = data.phone;
+      if (data.avatar !== undefined) body.avatar = data.avatar;
+      if (data.pendidikan !== undefined) body.pendidikan = data.pendidikan;
+      if (data.riwayatKerja !== undefined) body.riwayat_kerja = data.riwayatKerja;
+      if (data.pengalamanTahun !== undefined) body.pengalaman_tahun = data.pengalamanTahun;
+      if (data.cvFile !== undefined) body.cv_file = data.cvFile;
+      if (data.companyName !== undefined) body.company_name = data.companyName;
+      if (data.companyDesc !== undefined) body.company_desc = data.companyDesc;
+      if (data.companyLocation !== undefined) body.company_location = data.companyLocation;
+
+      const response = await api.put('/auth/profile', body, {
+        headers: { 'x-user-id': auth.id },
+      });
+      const json = response.data;
+      if (!json.success) throw new Error(json.message || 'Gagal update profile');
+
+      // Refresh profile
+      await fetchProfile();
+    } catch (err) {
+      console.error('Gagal update profile:', err);
+      throw err;
+    }
+  };
 
   const updateApplicantStatus = (id: string, status: 'pending' | 'diterima' | 'ditolak') => {
     setApplicants((prev) =>
@@ -186,6 +333,7 @@ export function JobProvider({ children }: { children: ReactNode }) {
         applicants,
         auth,
         profile,
+        loading,
         fetchJobs,
         addJob,
         updateJob,
@@ -196,7 +344,8 @@ export function JobProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
-        setProfile,
+        fetchProfile,
+        updateProfile,
         updateApplicantJobId,
       }}
     >

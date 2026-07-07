@@ -9,23 +9,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('pencari-kerja');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       alert('Please fill in all fields');
       return;
     }
-    login({
-      id: Date.now().toString(),
-      name: email.split('@')[0],
-      email,
-      role,
-      companyName: role === 'perusahaan' ? 'My Company' : undefined,
-    });
-    if (role === 'perusahaan') {
-      navigate('/dashboard');
-    } else {
-      navigate('/');
+    try {
+      await login(email, password);
+      const stored = localStorage.getItem('kerjago_auth');
+      const user = stored ? JSON.parse(stored) : null;
+      if (user?.role === 'perusahaan') {
+        navigate('/dashboard');
+      } else {
+        navigate('/');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Login gagal');
     }
   };
 

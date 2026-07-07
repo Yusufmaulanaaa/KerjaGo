@@ -1,4 +1,4 @@
-import { useJobs } from '../context/JobContext';
+import { useJobs } from '../../context/JobContext';
 
 interface JobCardProps {
   id: string;
@@ -9,16 +9,20 @@ interface JobCardProps {
   salary: string;
   type: string;
   description?: string;
+  distance_label?: string;
+  education_label?: string;
   verified: boolean;
+  distance?: number;
+  education?: string;
   onSelect?: () => void;
 }
 
-export default function JobCard({ id, title, company, companyLogo, location, salary, type, description, verified, onSelect }: JobCardProps) {
+export default function JobCard({ id, title, company, companyLogo, location, salary, type, description, distance_label, education_label, verified, onSelect }: JobCardProps) {
   const { addApplicant, auth, profile } = useJobs();
 
   const isProfileComplete = (): boolean => {
     if (!profile) return false;
-    if (profile.role === 'recruiter') return true; // recruiter doesn't need CV
+    if (profile.role === 'recruiter') return true;
     return !!(profile.name && profile.email && profile.phone && profile.pendidikan && profile.cvFile);
   };
 
@@ -33,7 +37,6 @@ export default function JobCard({ id, title, company, companyLogo, location, sal
       window.location.href = '/profile';
       return;
     }
-    // Instant Apply — gunakan data dari profil
     addApplicant({
       jobId: id,
       name: profile.name,
@@ -72,28 +75,32 @@ export default function JobCard({ id, title, company, companyLogo, location, sal
         </div>
       </div>
 
-      {/* Deskripsi */}
-      {description && (
-        <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">
-          {description}
-        </p>
-      )}
-
       {/* Tags */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="bg-brand-lime/30 text-brand-dark text-xs font-medium px-3 py-1 rounded-full">
-          {type}
-        </span>
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className="bg-brand-lime/30 text-brand-dark px-2.5 py-1 rounded-full font-medium">{type}</span>
+        {distance_label && (
+          <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">{distance_label}</span>
+        )}
+        {education_label && (
+          <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full">{education_label}</span>
+        )}
       </div>
 
-      {/* Bottom: salary + apply */}
-      <div className="flex items-center justify-between mt-auto pt-1">
-        <span className="font-bold text-brand-dark text-sm">{salary}</span>
+      {/* Salary */}
+      <p className="text-brand-dark font-bold text-sm">{salary}</p>
+
+      {/* Description */}
+      {description && (
+        <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{description}</p>
+      )}
+
+      {/* Apply button */}
+      <div className="mt-auto pt-2">
         <button
           onClick={handleApply}
-          className="border border-brand-dark text-brand-dark text-xs font-semibold px-5 py-2 rounded-full hover:bg-brand-dark hover:text-white hover:shadow-md active:scale-95 transition-all duration-200"
+          className="w-full bg-brand-dark text-white py-2.5 rounded-full text-sm font-semibold hover:opacity-90 transition-opacity"
         >
-          Apply Now
+          Lamar Sekarang
         </button>
       </div>
     </div>

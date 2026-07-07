@@ -7,7 +7,9 @@ import FindJobsPage from './pages/FindJobsPage'
 import JobAlertsPage from './pages/JobAlertsPage'
 import FindCandidatesPage from './pages/FindCandidatesPage'
 import CareerNotesPage from './pages/CareerNotesPage'
+import CareerNoteDetailPage from './pages/CareerNoteDetailPage'
 import ProfilePage from './pages/ProfilePage'
+import SPKRekomendasiPage from './pages/SPKRekomendasiPage'
 
 function App() {
   return (
@@ -20,7 +22,9 @@ function App() {
       <Route path="/job-alerts" element={<JobAlertsPage />} />
       <Route path="/find-candidates" element={<FindCandidatesPage />} />
       <Route path="/career-notes" element={<CareerNotesPage />} />
+      <Route path="/career-notes/:slug" element={<CareerNoteDetailPage />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/spk-rekomendasi" element={<SPKRekomendasiPage />} />
     </Routes>
   )
 }

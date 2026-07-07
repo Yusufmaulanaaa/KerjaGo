@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useJobs } from '../../context/JobContext';
 import { useRevealOnScroll } from '../../hooks/useRevealOnScroll';
-import JobCard from '../JobCard';
-import type { Job } from '../../context/JobContext';
+import JobCard from '../common/JobCard';
+import type { Job } from '../../types';
 
 interface FeaturedJobsProps {
   categoryFilter?: string;
