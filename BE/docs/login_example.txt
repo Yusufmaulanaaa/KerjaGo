@@ -1,0 +1,29 @@
+# SPK Job Portal - Login Credentials for Pelamar & Rekruter
+
+## 🧑‍💼 Pelamar (Job Seeker)
+**Email:** pelamar@gmail.com  
+**Password:** 123  
+
+**Cara pakai:**  
+1. POST ke /api/auth/login  
+2. Body:  
+```json
+{
+  "email": "pelamar@gmail.com",
+  "password": "123"
+}
+```
+
+## 👔 Rekruter (Recruiter / Perusahaan)
+**Email:** rekruter@gmail.com  
+**Password:** 123  
+
+**Cara pakai:**  
+1. Daftar sebagai perusahaan lewat /api/auth/register  
+2. Pilih role: perusahaan  
+3. Gunakan email: rekruter@gmail.com dan password rekruter@gmail.com untuk login  
+
+**Catatan:**  
+- Sistem mendukung dua peran: pelamar (default) dan perusahaan  
+- Semua akun uji (test) sudah ter-seed di database  
+- Untuk login sebagai perusahaan, pastikan role di account adalah "perusahaan"

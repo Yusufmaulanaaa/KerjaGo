@@ -1,10 +1,11 @@
-// ============================================================
-//  PRISMA SCHEMA — KerjaGo Database
-//  Provider: PostgreSQL (Supabase)
-// ============================================================
+// ============================================================================
+// PRISMA SCHEMA — SPK Job Portal
+// Disesuaikan secara manual dengan database Supabase yang sudah ada.
+// ============================================================================
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -12,31 +13,217 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Model: Job ──────────────────────────────────────────────
-model Job {
-  id           String   @id @default(uuid()) @map("id")
-  title        String   @map("title")
-  company      String   @map("company")
-  location     String   @map("location")
-  type         String   @map("type")
-  salary       String   @map("salary")
-  description  String   @map("description")
-  distance     Int?     @map("distance")
-  education    String?  @map("education")
-  requirements String[] @map("requirements")
-  created_at   DateTime @default(now()) @map("created_at")
+// ============================================================================
+// USERS — Auth (via Supabase Auth atau manual)
+// ============================================================================
+model Users {
+  id_user  String   @id @default(uuid())
+  nama     String
+  email    String   @unique
+  password String
+  role     String   @default("pelamar") // pelamar | perusahaan
+  created_at DateTime @default(now())
 
-  @@map("jobs")
-}
-
-// ─── Model: User ─────────────────────────────────────────────
-model User {
-  id         String   @id @default(uuid()) @map("id")
-  name       String   @map("name")
-  email      String   @unique @map("email")
-  password   String   @map("password")
-  role       String   @default("user") @map("role")
-  created_at DateTime @default(now()) @map("created_at")
+  profile      Profile?
+  preferensi   Preferensi[]
 
   @@map("users")
+}
+
+// ============================================================================
+// PROFILE — Data tambahan user (opsional)
+// ============================================================================
+model Profile {
+  id_user           String   @id
+  phone             String?
+  avatar            String?
+  pendidikan        String?
+  riwayat_kerja     String?
+  pengalaman_tahun  Int?
+  cv_file           String?
+  keahlian          String?   @default("[]") // JSON array: '["JavaScript","React"]'
+  company_name      String?
+  company_desc      String?
+  company_location  String?
+  updated_at        DateTime? @default(now())
+
+  user Users @relation(fields: [id_user], references: [id_user], onDelete: Cascade)
+
+  @@map("profile")
+}
+
+// ============================================================================
+// PERUSAHAAN — Daftar perusahaan BUMN
+// ============================================================================
+model Perusahaan {
+  id_perusahaan   Int       @id @default(autoincrement())
+  nama_perusahaan String
+  email           String?
+  telepon         String?
+  alamat          String?
+  kota            String?
+  deskripsi       String?
+  logo            String?
+  created_at      DateTime  @default(now())
+
+  lowongan Lowongan[]
+
+  @@map("perusahaan")
+}
+
+// ============================================================================
+// LOWONGAN — Pekerjaan yang diposting
+// ============================================================================
+model Lowongan {
+  id_lowongan     Int       @id @default(autoincrement())
+  id_perusahaan   Int
+  judul_pekerjaan String
+  deskripsi       String?
+  deadline        String?   // YYYY-MM-DD
+  status          String    @default("aktif") // aktif | nonaktif
+  id_tipe         Int?
+  id_gaji         Int?
+  id_jarak        Int?
+  id_pendidikan   Int?
+  id_pengalaman   Int?
+  created_at      DateTime  @default(now())
+
+  perusahaan Perusahaan @relation(fields: [id_perusahaan], references: [id_perusahaan])
+
+  hasil_saw    HasilSaw[]
+  hasil_wp     HasilWp[]
+  hasil_topsis HasilTopsis[]
+
+  @@map("lowongan")
+}
+
+// ============================================================================
+// KRITERIA — Kriteria penilaian SPK
+// ============================================================================
+model Kriteria {
+  id_kriteria   Int     @id @default(autoincrement())
+  nama_kriteria String
+  atribut       String   // benefit | cost
+  bobot_default Float?
+
+  sub_kriteria      SubKriteria[]
+  detail_preferensi DetailPreferensi[]
+
+  @@map("kriteria")
+}
+
+// ============================================================================
+// SUB_KRITERIA — Nilai sub dari setiap kriteria
+// ============================================================================
+model SubKriteria {
+  id_sub      Int    @id @default(autoincrement())
+  id_kriteria Int
+  nama_sub    String
+  nilai       Int
+
+  kriteria Kriteria @relation(fields: [id_kriteria], references: [id_kriteria])
+
+  @@map("sub_kriteria")
+}
+
+// ============================================================================
+// PREFERENSI — Preferensi bobot milik user
+// ============================================================================
+model Preferensi {
+  id_preferensi Int      @id @default(autoincrement())
+  id_user       String
+  created_at    DateTime @default(now())
+
+  user             Users             @relation(fields: [id_user], references: [id_user])
+  detail_preferensi DetailPreferensi[]
+  hasil_saw         HasilSaw[]
+  hasil_wp          HasilWp[]
+  hasil_topsis      HasilTopsis[]
+
+  @@map("preferensi")
+}
+
+// ============================================================================
+// DETAIL_PREFERENSI — Bobot per kriteria dalam preferensi
+// ============================================================================
+model DetailPreferensi {
+  id_detail     Int  @id @default(autoincrement())
+  id_preferensi Int
+  id_kriteria   Int
+  id_sub        Int?
+  bobot         Float?
+
+  preferensi Preferensi @relation(fields: [id_preferensi], references: [id_preferensi])
+  kriteria   Kriteria   @relation(fields: [id_kriteria], references: [id_kriteria])
+
+  @@map("detail_preferensi")
+}
+
+// ============================================================================
+// HASIL_SAW — Hasil perhitungan SAW
+// ============================================================================
+model HasilSaw {
+  id_hasil      Int   @id @default(autoincrement())
+  id_preferensi Int
+  id_lowongan   Int
+  skor          Float?
+  ranking       Int?
+
+  preferensi Preferensi @relation(fields: [id_preferensi], references: [id_preferensi])
+  lowongan   Lowongan   @relation(fields: [id_lowongan], references: [id_lowongan])
+
+  @@map("hasil_saw")
+}
+
+// ============================================================================
+// HASIL_WP — Hasil perhitungan Weighted Product
+// ============================================================================
+model HasilWp {
+  id_hasil       Int    @id @default(autoincrement())
+  id_preferensi  Int
+  id_lowongan    Int
+  nilai_s        Float?
+  nilai_v        Float?
+  ranking        Int?
+
+  preferensi Preferensi @relation(fields: [id_preferensi], references: [id_preferensi])
+  lowongan   Lowongan   @relation(fields: [id_lowongan], references: [id_lowongan])
+
+  @@map("hasil_wp")
+}
+
+// ============================================================================
+// HASIL_TOPSIS — Hasil perhitungan TOPSIS
+// ============================================================================
+model HasilTopsis {
+  id_hasil          Int    @id @default(autoincrement())
+  id_preferensi     Int
+  id_lowongan       Int
+  d_plus            Float?
+  d_minus           Float?
+  nilai_preferensi  Float?
+  ranking           Int?
+
+  preferensi Preferensi @relation(fields: [id_preferensi], references: [id_preferensi])
+  lowongan   Lowongan   @relation(fields: [id_lowongan], references: [id_lowongan])
+
+  @@map("hasil_topsis")
+}
+
+// ============================================================================
+// CAREER_NOTES — Artikel panduan karir
+// ============================================================================
+model CareerNotes {
+  id_note    Int      @id @default(autoincrement())
+  judul      String
+  slug       String   @unique
+  kategori   String   @default("umum")
+  konten     String
+  excerpt    String   @default("")
+  gambar     String   @default("")
+  penulis    String   @default("Admin")
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("career_notes")
 }
