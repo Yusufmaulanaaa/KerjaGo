@@ -7,29 +7,19 @@ import { rekomendasiService, type SPKResultItem } from '../services/rekomendasiS
 
 type MetodeTab = 'saw' | 'wp' | 'topsis';
 
-const metodeInfo: Record<MetodeTab, { label: string; icon: string; color: string; bgColor: string; desc: string }> = {
-  saw: {
-    label: 'SAW',
-    icon: '📊',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50 border-blue-200',
-    desc: 'Simple Additive Weighting — Penjumlahan terbobot',
-  },
-  wp: {
-    label: 'WP',
-    icon: '🔢',
-    color: 'text-emerald-600',
-    bgColor: 'bg-emerald-50 border-emerald-200',
-    desc: 'Weighted Product — Perkalian terbobot',
-  },
-  topsis: {
-    label: 'TOPSIS',
-    icon: '🎯',
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50 border-purple-200',
-    desc: 'Technique for Order Preference by Similarity to Ideal Solution',
-  },
-};
+interface BobotItem {
+  id_kriteria: number;
+  label: string;
+  bobot: number;
+}
+
+const defaultKriteria: BobotItem[] = [
+  { id_kriteria: 1, label: 'Tipe Pekerjaan', bobot: 3 },
+  { id_kriteria: 2, label: 'Gaji', bobot: 5 },
+  { id_kriteria: 3, label: 'Jarak', bobot: 3 },
+  { id_kriteria: 4, label: 'Pendidikan', bobot: 4 },
+  { id_kriteria: 5, label: 'Pengalaman', bobot: 4 },
+];
 
 export default function SPKRekomendasiPage() {
   const { auth } = useJobs();
@@ -39,14 +29,15 @@ export default function SPKRekomendasiPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jumlahLowongan, setJumlahLowongan] = useState(0);
+  const [bobotList, setBobotList] = useState<BobotItem[]>(defaultKriteria);
+  const [savingBobot, setSavingBobot] = useState(false);
+  const [bobotSaved, setBobotSaved] = useState(false);
+  const [bobotError, setBobotError] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<SPKResultItem | null>(null);
 
-  // Redirect if not logged in as job seeker
   useEffect(() => {
-    if (!auth) {
-      navigate('/login');
-    } else if (auth.role !== 'pencari-kerja') {
-      navigate('/dashboard');
-    }
+    if (!auth) navigate('/login');
+    else if (auth.role !== 'pencari-kerja') navigate('/dashboard');
   }, [auth, navigate]);
 
   const fetchRekomendasi = async () => {
@@ -62,255 +53,247 @@ export default function SPKRekomendasiPage() {
         setError(res.data.message || 'Gagal memuat rekomendasi');
       }
     } catch (err: any) {
-      if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError(err.message || 'Gagal memuat rekomendasi');
-      }
+      setError(err.response?.data?.message || err.message || 'Gagal memuat rekomendasi');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchRekomendasi();
-  }, []);
+  useEffect(() => { fetchRekomendasi(); }, []);
 
-  // Sorting results berdasarkan metode yang aktif
+  const handleBobotChange = (id: number, val: number) => {
+    setBobotList((prev) => prev.map((i) => i.id_kriteria === id ? { ...i, bobot: Math.max(1, Math.min(5, val)) } : i));
+    setBobotSaved(false);
+    setBobotError(null);
+  };
+
+  const handleSaveBobot = async () => {
+    if (!auth) return;
+    setSavingBobot(true);
+    setBobotError(null);
+    try {
+      await rekomendasiService.savePreferensi(bobotList.map((i) => ({ id_kriteria: i.id_kriteria, bobot: i.bobot })));
+      setBobotSaved(true);
+      fetchRekomendasi();
+    } catch (err: any) {
+      setBobotError(err.response?.data?.message || err.message || 'Gagal menyimpan');
+    } finally {
+      setSavingBobot(false);
+    }
+  };
+
   const sortedResults = [...results].sort((a, b) => {
     if (metode === 'saw') return a.saw.ranking - b.saw.ranking;
     if (metode === 'wp') return a.wp.ranking - b.wp.ranking;
     return a.topsis.ranking - b.topsis.ranking;
   });
 
-  // Ambil nilai & ranking sesuai metode
-  const getNilai = (item: SPKResultItem, metode: MetodeTab) => {
-    switch (metode) {
-      case 'saw':
-        return { nilai: item.saw.skor, ranking: item.saw.ranking };
-      case 'wp':
-        return { nilai: item.wp.nilai_v, ranking: item.wp.ranking };
-      case 'topsis':
-        return { nilai: item.topsis.nilai_preferensi, ranking: item.topsis.ranking };
-    }
-  };
-
-  const getRankingColor = (ranking: number) => {
-    if (ranking === 1) return 'bg-yellow-400 text-yellow-900 ring-yellow-300';
-    if (ranking === 2) return 'bg-gray-300 text-gray-700 ring-gray-200';
-    if (ranking === 3) return 'bg-amber-700 text-white ring-amber-500';
-    return 'bg-gray-100 text-gray-500';
+  const getNilai = (item: SPKResultItem, m: MetodeTab) => {
+    if (m === 'saw') return { nilai: item.saw.skor, ranking: item.saw.ranking };
+    if (m === 'wp') return { nilai: item.wp.nilai_v, ranking: item.wp.ranking };
+    return { nilai: item.topsis.nilai_preferensi, ranking: item.topsis.ranking };
   };
 
   if (!auth || auth.role !== 'pencari-kerja') return null;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-brand-lime/10 font-sans">
+    <div className="min-h-screen bg-white font-sans">
       <Navbar />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-        {/* Page Header */}
-        <div className="mb-8 lg:mb-10">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-7 bg-brand-lime rounded-full"></div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark tracking-tight">
-              SPK Rekomendasi Pekerjaan
-            </h1>
-          </div>
-          <p className="text-gray-500 text-sm sm:text-base ml-4">
-            Hasil rekomendasi lowongan menggunakan 3 metode SAW, WP, dan TOPSIS
-          </p>
-        </div>
 
-        {/* Metode Tabs */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {(Object.keys(metodeInfo) as MetodeTab[]).map((key) => {
-            const info = metodeInfo[key];
-            return (
+      {/* Header */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6">
+        <h1 className="text-2xl font-bold text-brand-dark">SPK Rekomendasi Pekerjaan</h1>
+        <p className="text-gray-500 text-sm mt-1">Analisis lowongan berdasarkan preferensi kriteria menggunakan metode SAW, WP, dan TOPSIS</p>
+      </div>
+
+      {/* Method Tabs */}
+      <div className="border-b border-brand-border bg-white sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex gap-1">
+            {(['saw', 'wp', 'topsis'] as MetodeTab[]).map((m) => (
               <button
-                key={key}
-                onClick={() => setMetode(key)}
-                className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all border-2 ${
-                  metode === key
-                    ? `${info.bgColor} ${info.color} shadow-sm`
-                    : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200'
+                key={m}
+                onClick={() => setMetode(m)}
+                className={`px-5 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                  metode === m
+                    ? 'border-brand-lime text-brand-dark'
+                    : 'border-transparent text-gray-400 hover:text-gray-600'
                 }`}
               >
-                <span className="text-lg">{info.icon}</span>
-                <div className="text-left">
-                  <p>{info.label}</p>
-                  <p className="text-[10px] font-normal opacity-70">{info.desc}</p>
-                </div>
+                {m.toUpperCase()}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
+      </div>
 
-        {/* Info + Tombol Hitung Ulang */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-gray-500">
-            {jumlahLowongan > 0
-              ? `📋 ${jumlahLowongan} lowongan dianalisis — ${results.length} hasil rekomendasi`
-              : 'Belum ada data rekomendasi'}
-          </p>
-          <button
-            onClick={fetchRekomendasi}
-            disabled={loading}
-            className="bg-brand-dark hover:opacity-90 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-all disabled:opacity-50 flex items-center gap-2"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Menghitung...
-              </>
-            ) : (
-              '🔄 Hitung Ulang'
-            )}
-          </button>
-        </div>
+      {/* Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
 
-        {/* Error */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 text-sm mb-6">
-            <p className="font-semibold mb-1">Gagal memuat rekomendasi</p>
-            <p>{error}</p>
-            {error.includes('Preferensi tidak ditemukan') && (
-              <div className="mt-3 bg-white/60 rounded-lg p-3">
-                <p className="text-sm">📝 Kamu belum mengisi preferensi kriteria. Silakan isi <strong>Quiz Karir</strong> di halaman <button onClick={() => navigate('/profile')} className="text-brand-dark font-bold underline">Profile</button> terlebih dahulu.</p>
+          {/* ---- SIDEBAR: Bobot ---- */}
+          <div className="lg:w-72 shrink-0">
+            <div className="border border-brand-border rounded-xl p-5 sticky top-16">
+              <h3 className="text-xs font-semibold text-brand-dark uppercase tracking-wider mb-4">Bobot Kriteria</h3>
+              <div className="space-y-4">
+                {bobotList.map((item) => (
+                  <div key={item.id_kriteria}>
+                    <p className="text-sm text-brand-dark font-medium mb-2 leading-tight">{item.label}</p>
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={() => handleBobotChange(item.id_kriteria, item.bobot - 1)} disabled={item.bobot <= 1}
+                        className="w-7 h-7 border border-brand-border rounded-full flex items-center justify-center text-gray-500 hover:border-brand-dark hover:text-brand-dark disabled:opacity-30 transition-colors text-sm font-medium shrink-0">
+                        {'\u2212'}
+                      </button>
+                      <div className="flex-1">
+                        <div className="w-full h-1.5 bg-gray-100 rounded-full">
+                          <div className="h-full bg-brand-dark rounded-full transition-all" style={{ width: `${(item.bobot / 5) * 100}%` }} />
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => handleBobotChange(item.id_kriteria, item.bobot + 1)} disabled={item.bobot >= 5}
+                        className="w-7 h-7 border border-brand-border rounded-full flex items-center justify-center text-gray-500 hover:border-brand-dark hover:text-brand-dark disabled:opacity-30 transition-colors text-sm font-medium shrink-0">
+                        {'+'}
+                      </button>
+                      <span className="w-5 text-center text-sm font-bold text-brand-dark shrink-0">{item.bobot}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="text-center py-16">
-            <div className="animate-spin w-10 h-10 border-4 border-brand-lime border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-gray-400 text-sm">Menganalisis lowongan dengan metode {metodeInfo[metode].label}...</p>
-          </div>
-        )}
+              {bobotError && <p className="mt-3 text-xs text-red-500">{bobotError}</p>}
 
-        {/* Empty State */}
-        {!loading && !error && results.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <div className="text-5xl mb-4">📋</div>
-            <h3 className="text-lg font-bold text-brand-dark mb-2">Belum Ada Rekomendasi</h3>
-            <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
-              Isi <strong>Quiz Karir</strong> di halaman Profile untuk mengatur preferensi kriteria, lalu hitung rekomendasi.
-            </p>
-            <button
-              onClick={() => navigate('/profile')}
-              className="bg-brand-lime text-brand-dark font-semibold px-6 py-2.5 rounded-full text-sm hover:opacity-90 transition-opacity"
-            >
-              ✏️ Isi Quiz Karir di Profile
-            </button>
-          </div>
-        )}
-
-        {/* Results Table */}
-        {!loading && results.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className={`border-b ${metode === 'saw' ? 'bg-blue-50' : metode === 'wp' ? 'bg-emerald-50' : 'bg-purple-50'}`}>
-                    <th className="text-left py-4 px-5 font-semibold text-brand-dark">Ranking</th>
-                    <th className="text-left py-4 px-5 font-semibold text-brand-dark">Pekerjaan</th>
-                    <th className="text-left py-4 px-5 font-semibold text-brand-dark">Perusahaan</th>
-                    <th className="text-right py-4 px-5 font-semibold text-brand-dark">
-                      Skor ({metodeInfo[metode].label})
-                    </th>
-                    <th className="text-center py-4 px-5 font-semibold text-brand-dark">
-                      SAW
-                    </th>
-                    <th className="text-center py-4 px-5 font-semibold text-brand-dark">
-                      WP
-                    </th>
-                    <th className="text-center py-4 px-5 font-semibold text-brand-dark">
-                      TOPSIS
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedResults.map((item, idx) => {
-                    const { nilai, ranking } = getNilai(item, metode);
-                    return (
-                      <tr
-                        key={item.id_lowongan}
-                        className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors ${
-                          ranking <= 3 ? 'bg-yellow-50/30' : ''
-                        }`}
-                      >
-                        {/* Ranking */}
-                        <td className="py-4 px-5">
-                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ring-2 ${getRankingColor(ranking)}`}>
-                            {ranking}
-                          </span>
-                        </td>
-
-                        {/* Pekerjaan */}
-                        <td className="py-4 px-5">
-                          <p className="font-semibold text-brand-dark">{item.judul_pekerjaan}</p>
-                        </td>
-
-                        {/* Perusahaan */}
-                        <td className="py-4 px-5 text-gray-500">{item.nama_perusahaan}</td>
-
-                        {/* Skor metode aktif */}
-                        <td className="py-4 px-5 text-right">
-                          <span className={`text-lg font-bold ${
-                            metode === 'saw' ? 'text-blue-600' :
-                            metode === 'wp' ? 'text-emerald-600' : 'text-purple-600'
-                          }`}>
-                            {nilai.toFixed(4)}
-                          </span>
-                        </td>
-
-                        {/* Ranking di 3 metode */}
-                        <td className="py-4 px-5 text-center">
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            item.saw.ranking <= 3 ? 'bg-blue-50 text-blue-700' : 'text-gray-400'
-                          }`}>
-                            #{item.saw.ranking}
-                          </span>
-                        </td>
-                        <td className="py-4 px-5 text-center">
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            item.wp.ranking <= 3 ? 'bg-emerald-50 text-emerald-700' : 'text-gray-400'
-                          }`}>
-                            #{item.wp.ranking}
-                          </span>
-                        </td>
-                        <td className="py-4 px-5 text-center">
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            item.topsis.ranking <= 3 ? 'bg-purple-50 text-purple-700' : 'text-gray-400'
-                          }`}>
-                            #{item.topsis.ranking}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="mt-5 space-y-2">
+                <button type="button" onClick={handleSaveBobot} disabled={savingBobot}
+                  className="w-full bg-brand-dark text-white font-semibold py-2.5 rounded-full text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+                  {savingBobot ? 'Menyimpan...' : 'Simpan & Hitung Ulang'}
+                </button>
+                {bobotSaved && <p className="text-center text-xs text-brand-dark font-medium">Tersimpan. Rekomendasi diperbarui.</p>}
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Info Footer */}
-        {!loading && results.length > 0 && (
-          <div className="mt-6 bg-white/60 rounded-xl border border-gray-100 p-4">
-            <p className="text-xs text-gray-400 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-              Peringkat 1-3 diberi sorotan warna.
-              <span className="w-2 h-2 rounded-full bg-blue-100 ml-2"></span>
-              Setiap metode menggunakan bobot kriteria dari preferensi yang kamu isi di Quiz Karir.
-              Hasil disimpan otomatis di database.
-            </p>
+          {/* ---- MAIN: Hasil ---- */}
+          <div className="flex-1 min-w-0">
+
+            {/* Stats */}
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-sm text-gray-500">
+                {jumlahLowongan > 0 ? `${jumlahLowongan} lowongan dianalisis \u2014 ${sortedResults.length} hasil` : 'Belum ada data'}
+              </p>
+              <button onClick={fetchRekomendasi} disabled={loading}
+                className="text-xs text-gray-400 hover:text-brand-dark transition-colors">
+                {loading ? 'Memuat...' : 'Refresh'}
+              </button>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="border border-red-200 rounded-xl p-5 mb-5">
+                <p className="text-sm text-red-600 font-medium mb-1">Gagal memuat rekomendasi</p>
+                <p className="text-sm text-red-400">{error}</p>
+                {error.includes('Preferensi tidak ditemukan') && (
+                  <p className="text-xs text-gray-500 mt-2">Isi bobot kriteria di panel kiri lalu klik Simpan & Hitung Ulang.</p>
+                )}
+              </div>
+            )}
+
+            {/* Loading */}
+            {loading && (
+              <div className="text-center py-20">
+                <div className="w-10 h-10 border-4 border-brand-lime border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-400 text-sm">Menganalisis lowongan...</p>
+              </div>
+            )}
+
+            {/* Empty */}
+            {!loading && !error && results.length === 0 && (
+              <div className="text-center py-20 border border-brand-border rounded-xl">
+                <p className="text-gray-400 text-sm">Belum ada rekomendasi. Isi bobot kriteria lalu klik Simpan.</p>
+              </div>
+            )}
+
+            {/* Results */}
+            {!loading && results.length > 0 && (
+              <>
+                {/* Table */}
+                <div className="border border-brand-border rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-brand-border">
+                          <th className="text-left py-3 px-4 font-semibold text-brand-dark text-xs">#</th>
+                          <th className="text-left py-3 px-4 font-semibold text-brand-dark text-xs">Pekerjaan</th>
+                          <th className="text-left py-3 px-4 font-semibold text-brand-dark text-xs hidden sm:table-cell">Perusahaan</th>
+                          <th className="text-right py-3 px-4 font-semibold text-brand-dark text-xs">Skor {metode.toUpperCase()}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedResults.map((item) => {
+                          const { nilai, ranking } = getNilai(item, metode);
+                          const isActive = selectedDetail?.id_lowongan === item.id_lowongan;
+                          return (
+                            <tr
+                              key={item.id_lowongan}
+                              onClick={() => setSelectedDetail(isActive ? null : item)}
+                              className={`border-b border-brand-border last:border-0 cursor-pointer transition-colors ${
+                                isActive ? 'bg-brand-lime/10' : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <td className="py-3 px-4">
+                                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
+                                  ranking === 1 ? 'bg-brand-lime text-brand-dark'
+                                  : ranking <= 3 ? 'bg-brand-dark text-white'
+                                  : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {ranking}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <p className="font-semibold text-brand-dark">{item.judul_pekerjaan}</p>
+                                <p className="text-xs text-gray-400 sm:hidden">{item.nama_perusahaan}</p>
+                              </td>
+                              <td className="py-3 px-4 text-gray-500 text-xs hidden sm:table-cell">{item.nama_perusahaan}</td>
+                              <td className="py-3 px-4 text-right font-bold text-brand-dark">{nilai.toFixed(4)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Detail */}
+                {selectedDetail && (
+                  <div className="mt-5 border border-brand-border rounded-xl p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="font-bold text-brand-dark">{selectedDetail.judul_pekerjaan}</h3>
+                        <p className="text-sm text-gray-500">{selectedDetail.nama_perusahaan}</p>
+                      </div>
+                      <button onClick={() => setSelectedDetail(null)} className="text-gray-300 hover:text-brand-dark transition-colors text-lg">&times;</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      {(['saw', 'wp', 'topsis'] as MetodeTab[]).map((m) => {
+                        const { nilai, ranking } = getNilai(selectedDetail, m);
+                        return (
+                          <div key={m} className={`border rounded-lg p-3 ${metode === m ? 'border-brand-lime bg-brand-lime/5' : 'border-brand-border'}`}>
+                            <p className="text-xs font-semibold text-brand-dark mb-1">{m.toUpperCase()}</p>
+                            <p className="text-lg font-bold text-brand-dark">{nilai.toFixed(4)}</p>
+                            <p className="text-xs text-gray-400">Ranking #{ranking}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <p className="mt-4 text-xs text-gray-400">
+                  Ranking 1\u20133 disorot. Klik baris untuk melihat detail skor 3 metode.
+                </p>
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
       <Footer />
     </div>

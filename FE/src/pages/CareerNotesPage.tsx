@@ -18,11 +18,11 @@ interface Article {
 }
 
 const categoryColors: Record<string, string> = {
-  'Tips CV': 'bg-blue-100 text-blue-700',
-  'Interview': 'bg-purple-100 text-purple-700',
-  'Tren Industri': 'bg-orange-100 text-orange-700',
-  'Karir': 'bg-green-100 text-green-700',
-  'Skill': 'bg-pink-100 text-pink-700',
+  'Tips CV': 'bg-gray-100 text-gray-600',
+  'Interview': 'bg-gray-100 text-gray-600',
+  'Tren Industri': 'bg-gray-100 text-gray-600',
+  'Karir': 'bg-gray-100 text-gray-600',
+  'Skill': 'bg-gray-100 text-gray-600',
 };
 
 export default function CareerNotesPage() {

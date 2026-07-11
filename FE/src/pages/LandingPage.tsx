@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import Navbar from '../components/layout/Navbar';
 import HeroSection from '../components/home/HeroSection';
 import TrendingJobs from '../components/home/TrendingJobs';
@@ -11,57 +10,59 @@ import Newsletter from '../components/common/Newsletter';
 import Footer from '../components/layout/Footer';
 import JobCard from '../components/common/JobCard';
 import { useJobs, type Job } from '../context/JobContext';
+import { jobService } from '../services/jobService';
 
 export default function LandingPage() {
-  const { jobs, auth } = useJobs();
-  const navigate = useNavigate();
-
-  // Redirect perusahaan ke dashboard
-  useEffect(() => {
-    if (auth?.role === 'perusahaan') {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [auth, navigate]);
+  const { siteStats } = useJobs();
 
   const [keyword, setKeyword] = useState('');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [location, setLocation] = useState('');
   const [activeCategory, setActiveCategory] = useState('UX/UI Design');
+  const [searchResults, setSearchResults] = useState<Job[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  const handleSearch = (kw: string, loc: string) => {
+  const handleSearch = async (kw: string, _loc: string) => {
     setKeyword(kw);
-    setLocation(loc);
+    setLocation(_loc);
+    if (!kw && !_loc) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const params: Record<string, string> = { limit: '12' };
+      if (kw) params.search = kw;
+      const res = await jobService.getAll(params);
+      if (res.data.success) {
+        setSearchResults(res.data.data.map((item: any) => ({
+          id: String(item.id_lowongan), id_lowongan: item.id_lowongan,
+          title: item.judul_pekerjaan || '', company: item.nama_perusahaan || '',
+          companyLogo: (item.nama_perusahaan || '')[0] || '?',
+          location: item.jarak || '', salary: item.gaji || '', type: item.tipe_pekerjaan || '',
+          description: item.deskripsi || '', category: item.kategori || 'Umum',
+          verified: false, featured: false, distance: item.id_jarak ?? 0,
+          distance_label: item.jarak || '', education: item.pendidikan || '',
+          education_label: item.pendidikan || '', requirements: [],
+        })));
+      }
+    } catch { setSearchResults([]); }
+    finally { setSearching(false); }
   };
-
-  const filteredJobs = jobs.filter((job) => {
-    const matchKeyword =
-      !keyword ||
-      job.title.toLowerCase().includes(keyword.toLowerCase()) ||
-      job.company.toLowerCase().includes(keyword.toLowerCase());
-    const matchLocation =
-      !location ||
-      job.location.toLowerCase().includes(location.toLowerCase());
-    return matchKeyword && matchLocation;
-  });
 
   return (
     <div className="min-h-screen bg-white font-sans">
       <Navbar />
-      <HeroSection jobCount={jobs.length} onSearch={handleSearch} />
+      <HeroSection jobCount={siteStats.total} onSearch={handleSearch} />
 
-      {/* If search is active, show filtered results */}
+      {/* If search is active, show results fetched from BE */}
       {(keyword || location) && (
         <section id="find-jobs" className="max-w-6xl mx-auto px-4 pb-12">
           <h2 className="text-xl font-bold text-brand-dark mb-6">
-            Search Results ({filteredJobs.length})
+            {searching ? 'Mencari...' : `Search Results (${searchResults.length})`}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredJobs.length > 0 ? (
-              filteredJobs.map((job) => <JobCard key={job.id} {...job} onSelect={() => setSelectedJob(job)} />)
+            {searchResults.length > 0 ? (
+              searchResults.map((job) => <JobCard key={job.id} {...job} onSelect={() => setSelectedJob(job)} />)
             ) : (
-              <p className="text-gray-500 col-span-full text-center py-10">
-                No jobs found matching your criteria.
-              </p>
+              !searching && <p className="text-gray-500 col-span-full text-center py-10">No jobs found matching your criteria.</p>
             )}
           </div>
         </section>

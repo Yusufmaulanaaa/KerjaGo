@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:3000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://kerjago.onrender.com/api';
 
 export const JOB_API = `${API_BASE_URL}/lowongan`;
 export const AUTH_API = `${API_BASE_URL}/auth`;

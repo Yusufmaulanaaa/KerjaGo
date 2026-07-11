@@ -77,12 +77,12 @@ export default function JobCard({ id, title, company, companyLogo, location, sal
 
       {/* Tags */}
       <div className="flex flex-wrap gap-2 text-xs">
-        <span className="bg-brand-lime/30 text-brand-dark px-2.5 py-1 rounded-full font-medium">{type}</span>
+        <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full font-medium">{type}</span>
         {distance_label && (
-          <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">{distance_label}</span>
+          <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{distance_label}</span>
         )}
         {education_label && (
-          <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full">{education_label}</span>
+          <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{education_label}</span>
         )}
       </div>
 

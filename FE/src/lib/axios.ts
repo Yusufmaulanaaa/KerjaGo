@@ -2,7 +2,7 @@ import axios from 'axios';
 import { STORAGE_KEYS } from '../constants';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://kerjago.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },

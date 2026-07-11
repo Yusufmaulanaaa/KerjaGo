@@ -52,6 +52,8 @@ export interface UserProfile {
   riwayatKerja?: string;
   pengalamanTahun?: number;
   cvFile?: string;
+  keahlian?: string[]; // parsed from backend JSON string
+  lokasi?: string; // kota domisili pelamar
   // Khusus Recruiter
   companyName?: string;
   companyDesc?: string;

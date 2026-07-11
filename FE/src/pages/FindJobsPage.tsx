@@ -2,7 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import JobCard from '../components/common/JobCard';
-import { useJobs, type Job } from '../context/JobContext';
+import { jobService } from '../services/jobService';
+import type { Job } from '../types';
+import {
+  PENGALAMAN_MAP, SALARY_MAP, DISTANCE_MAP, EDUCATION_MAP,
+} from '../constants';
 
 const jobTypes = ['Semua', 'Full-time', 'Part-time', 'Contract', 'Internship'];
 const categories = ['Semua', 'UX/UI Design', 'Digital Marketing', 'Web Development', 'Data Science', 'Mobile Development', 'AI / Machine Learning', 'DevOps', 'Quality Assurance', 'Product Management'];
@@ -17,7 +21,8 @@ const salaryRanges = [
 ];
 
 export default function FindJobsPage() {
-  const { jobs, fetchJobs } = useJobs();
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
@@ -32,22 +37,38 @@ export default function FindJobsPage() {
   const distanceOptions = ['Semua', '< 5 km', '< 15 km', '< 30 km', '< 50 km'];
   const educationOptions = ['Semua', 'SMA/SMK Sederajat', 'Diploma (D3/D4)', 'Sarjana (S1)', 'Pascasarjana (S2/S3)'];
 
-  // Filter params yang dikirim ke backend
-  const getFilterParams = () => ({
-    search: keyword || undefined,
-    education: selectedEducation !== 'Semua' ? selectedEducation : undefined,
-    maxDistance: selectedDistance !== 'Semua' ? selectedDistance.replace(/[^\d]/g, '') : undefined,
-  });
-
-  // Fetch data whenever filters change
+  // Fetch from BE with filters applied server-side
   useEffect(() => {
     const loadJobs = async () => {
       setLoading(true);
       setError(null);
       try {
-        await fetchJobs(getFilterParams());
-      } catch (err) {
-        setError('Gagal memuat data lowongan. Silakan coba lagi.');
+        const params: Record<string, string> = { limit: '60' };
+        if (keyword) params.search = keyword;
+        if (selectedType !== 'Semua') params.type = selectedType;
+        if (selectedSalary !== 'Semua') params.id_gaji = SALARY_MAP[selectedSalary] || '';
+        if (selectedDistance !== 'Semua') params.id_jarak = DISTANCE_MAP[selectedDistance] || '';
+        if (selectedEducation !== 'Semua') params.id_pendidikan = EDUCATION_MAP[selectedEducation] || '';
+        if (selectedPengalaman !== 'Semua') params.id_pengalaman = PENGALAMAN_MAP[selectedPengalaman] || '';
+        if (selectedCategory !== 'Semua') params.kategori = selectedCategory;
+
+        const res = await jobService.getAll(params);
+        if (res.data.success) {
+          const mapped = res.data.data.map((item: any) => ({
+            id: String(item.id_lowongan), id_lowongan: item.id_lowongan,
+            title: item.judul_pekerjaan || '', company: item.nama_perusahaan || '',
+            companyLogo: (item.nama_perusahaan || '')[0] || '?',
+            location: item.jarak || '', salary: item.gaji || '', type: item.tipe_pekerjaan || '',
+            description: item.deskripsi || '', category: item.kategori || 'Umum',
+            verified: false, featured: false, distance: item.id_jarak ?? 0,
+            distance_label: item.jarak || '', education: item.pendidikan || '',
+            education_label: item.pendidikan || '', requirements: [],
+          }));
+          setJobs(mapped);
+          setTotal(res.data.total ?? mapped.length);
+        }
+      } catch {
+        setError('Gagal memuat data lowongan.');
       } finally {
         setLoading(false);
       }
@@ -72,7 +93,7 @@ export default function FindJobsPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-brand-dark">Semua Lowongan Kerja</h1>
-          <p className="text-gray-500 text-sm">{jobs.length} lowongan ditemukan</p>
+          <p className="text-gray-500 text-sm">{total} lowongan ditemukan</p>
         </div>
 
         <div className="flex flex-col md:flex-row gap-6">
@@ -280,7 +301,7 @@ export default function FindJobsPage() {
                   <p className="font-semibold text-brand-dark">{selectedJob.company}</p>
                   <p className="text-gray-500 text-sm">{selectedJob.location}</p>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <span className="bg-brand-lime/30 text-brand-dark text-xs font-medium px-3 py-1 rounded-full">
+                    <span className="bg-gray-100 text-gray-600 text-xs font-medium px-3 py-1 rounded-full">
                       {selectedJob.type}
                     </span>
                     <span className="font-bold text-brand-dark text-sm">{selectedJob.salary}</span>

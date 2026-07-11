@@ -4,24 +4,30 @@ import { JOB_API } from '../constants';
 export interface JobResponse {
   success: boolean;
   data: any[];
+  total?: number;
   message?: string;
 }
 
 export const jobService = {
-  getAll: async (params?: { search?: string; id_pendidikan?: string; id_jarak?: string; id_tipe?: string; id_gaji?: string; id_pengalaman?: string }) => {
+  getAll: async (params?: Record<string, string>) => {
     const query = new URLSearchParams();
-    if (params?.search) query.set('search', params.search);
-    if (params?.id_pendidikan) query.set('id_pendidikan', params.id_pendidikan);
-    if (params?.id_jarak) query.set('id_jarak', params.id_jarak);
-    if (params?.id_tipe) query.set('id_tipe', params.id_tipe);
-    if (params?.id_gaji) query.set('id_gaji', params.id_gaji);
-    if (params?.id_pengalaman) query.set('id_pengalaman', params.id_pengalaman);
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => { if (v) query.set(k, v); });
+    }
     const qs = query.toString();
     return api.get<JobResponse>(`${JOB_API}${qs ? `?${qs}` : ''}`);
   },
 
-  getById: async (id: string) => {
-    return api.get(`${JOB_API}/${id}`);
+  getStats: async () => {
+    return api.get<{ success: boolean; data: { total: number; perusahaan_count: number; per_tipe: Record<string, number>; per_kategori: Record<string, number> } }>(`${JOB_API}/stats`);
+  },
+
+  getFeatured: async (limit = 6) => {
+    return api.get<{ success: boolean; data: any[] }>(`${JOB_API}/featured?limit=${limit}`);
+  },
+
+  getCategories: async () => {
+    return api.get<{ success: boolean; data: { name: string; count: number }[] }>(`${JOB_API}/categories`);
   },
 
   create: async (data: any) => {

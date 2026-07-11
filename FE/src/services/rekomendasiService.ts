@@ -1,4 +1,4 @@
-import { authAxios } from '../lib/authAxios';
+import api from '../lib/axios';
 
 // ============================================================================
 // Types for SPK API Response (Backend: services/spk/index.ts)
@@ -44,14 +44,14 @@ export interface SPKResponseData {
 export const rekomendasiService = {
   /** GET /api/spk/rekomendasi — Hitung & ambil rekomendasi SPK (3 metode) */
   getRekomendasi: async () => {
-    return authAxios.get<{ success: boolean; data: SPKResponseData; message?: string }>(
+    return api.get<{ success: boolean; data: SPKResponseData; message?: string }>(
       '/spk/rekomendasi'
     );
   },
 
   /** POST /api/preferensi — Simpan bobot preferensi kriteria user */
   savePreferensi: async (kriteriaBobot: { id_kriteria: number; bobot: number }[]) => {
-    return authAxios.post<{ success: boolean; message: string; data: any }>(
+    return api.post<{ success: boolean; message: string; data: any }>(
       '/preferensi',
       { kriteria_bobot: kriteriaBobot }
     );

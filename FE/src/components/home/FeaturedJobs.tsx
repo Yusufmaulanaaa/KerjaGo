@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useJobs } from '../../context/JobContext';
+import { useState, useEffect } from 'react';
+import { jobService } from '../../services/jobService';
 import { useRevealOnScroll } from '../../hooks/useRevealOnScroll';
 import JobCard from '../common/JobCard';
 import type { Job } from '../../types';
@@ -9,14 +9,44 @@ interface FeaturedJobsProps {
   onSelectJob?: (job: Job) => void;
 }
 
-export default function FeaturedJobs({ categoryFilter, onSelectJob }: FeaturedJobsProps) {
-  const { jobs } = useJobs();
-  const featured = categoryFilter
-    ? jobs.filter((j) => j.featured && j.category === categoryFilter)
-    : jobs.filter((j) => j.featured);
-  const [visibleCount, setVisibleCount] = useState(6);
+function mapJob(item: any): Job {
+  return {
+    id: String(item.id_lowongan),
+    id_lowongan: item.id_lowongan,
+    title: item.judul_pekerjaan || '',
+    company: item.nama_perusahaan || '',
+    companyLogo: (item.nama_perusahaan || '')[0] || '?',
+    location: item.jarak || '',
+    salary: item.gaji || '',
+    type: item.tipe_pekerjaan || '',
+    description: item.deskripsi || '',
+    category: item.kategori || 'Umum',
+    verified: false,
+    featured: false,
+    distance: item.id_jarak ?? 0,
+    distance_label: item.jarak || '',
+    education: item.pendidikan || '',
+    education_label: item.pendidikan || '',
+    requirements: [],
+  };
+}
 
+export default function FeaturedJobs({ categoryFilter, onSelectJob }: FeaturedJobsProps) {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [visibleCount, setVisibleCount] = useState(6);
   const { ref, isVisible } = useRevealOnScroll({ threshold: 0.08 });
+
+  useEffect(() => {
+    jobService.getFeatured(18).then((res) => {
+      if (res.data.success) {
+        setJobs(res.data.data.map(mapJob));
+      }
+    }).catch(() => {});
+  }, []);
+
+  const featured = categoryFilter
+    ? jobs.filter((j) => j.category === categoryFilter)
+    : jobs;
 
   const displayed = featured.slice(0, visibleCount);
 
@@ -37,9 +67,7 @@ export default function FeaturedJobs({ categoryFilter, onSelectJob }: FeaturedJo
       </div>
 
       {displayed.length === 0 ? (
-        <p className="text-gray-400 text-center py-10">
-          No featured jobs in this category yet.
-        </p>
+        <p className="text-gray-400 text-center py-10">No featured jobs in this category yet.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {displayed.map((job, idx) => (
