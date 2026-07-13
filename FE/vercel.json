@@ -1,4 +1,10 @@
 {
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "env": {
+    "VITE_API_URL": "https://kerjago.onrender.com/api"
+  },
   "rewrites": [
     { "source": "/((?!assets/|favicon\\.svg).+)", "destination": "/index.html" }
   ]
