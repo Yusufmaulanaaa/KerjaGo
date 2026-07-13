@@ -1,4 +1,5 @@
 import { useJobs } from '../../context/JobContext';
+import { useNavigate } from 'react-router-dom';
 
 interface JobCardProps {
   id: string;
@@ -19,6 +20,7 @@ interface JobCardProps {
 
 export default function JobCard({ id, title, company, companyLogo, location, salary, type, description, distance_label, education_label, verified, onSelect }: JobCardProps) {
   const { addApplicant, auth, profile } = useJobs();
+  const navigate = useNavigate();
 
   const isProfileComplete = (): boolean => {
     if (!profile) return false;
@@ -29,12 +31,12 @@ export default function JobCard({ id, title, company, companyLogo, location, sal
   const handleApply = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!auth) {
-      window.location.href = '/login';
+      navigate('/login');
       return;
     }
     if (!profile || !isProfileComplete()) {
       alert('Profil Belum Lengkap! Silakan lengkapi data diri dan upload CV Anda terlebih dahulu di halaman Profil Saya.');
-      window.location.href = '/profile';
+      navigate('/profile');
       return;
     }
     addApplicant({
