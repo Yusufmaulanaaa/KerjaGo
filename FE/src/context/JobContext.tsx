@@ -217,7 +217,7 @@ export function JobProvider({ children }: { children: ReactNode }) {
       const json = res.data;
       if (!json.success) return;
       const u = json.data;
-      const userProfile: UserProfile = {
+      const dbProfile: UserProfile = {
         role: u.role === 'perusahaan' ? 'recruiter' : 'jobseeker',
         name: u.nama, email: u.email, phone: u.phone || '', avatar: u.avatar || '',
         pendidikan: u.pendidikan || '', riwayatKerja: u.riwayat_kerja || '',
@@ -227,8 +227,25 @@ export function JobProvider({ children }: { children: ReactNode }) {
         companyName: u.company_name || '', companyDesc: u.company_desc || '',
         companyLocation: u.company_location || '',
       };
-      setProfile(userProfile);
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(userProfile));
+
+      const local = loadFromStorage<UserProfile | null>(STORAGE_KEYS.PROFILE, null);
+      const merged: UserProfile = {
+        ...dbProfile,
+        ...(local?.phone ? { phone: local.phone } : {}),
+        ...(local?.pendidikan ? { pendidikan: local.pendidikan } : {}),
+        ...(local?.riwayatKerja ? { riwayatKerja: local.riwayatKerja } : {}),
+        ...(local?.pengalamanTahun ? { pengalamanTahun: local.pengalamanTahun } : {}),
+        ...(local?.cvFile ? { cvFile: local.cvFile } : {}),
+        ...(local?.keahlian && local.keahlian.length > 0 ? { keahlian: local.keahlian } : {}),
+        ...(local?.avatar ? { avatar: local.avatar } : {}),
+        ...(local?.lokasi ? { lokasi: local.lokasi } : {}),
+        ...(local?.companyName ? { companyName: local.companyName } : {}),
+        ...(local?.companyDesc ? { companyDesc: local.companyDesc } : {}),
+        ...(local?.companyLocation ? { companyLocation: local.companyLocation } : {}),
+      };
+
+      setProfile(merged);
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(merged));
     } catch (err) {
       console.error('Gagal fetch profile:', err);
     }
@@ -252,19 +269,13 @@ export function JobProvider({ children }: { children: ReactNode }) {
       if (data.companyLocation !== undefined) body.company_location = data.companyLocation;
 
       await api.put('/auth/profile', body, { headers: { 'x-user-id': auth.id } });
-
-      const merged: UserProfile = {
-        ...profile,
-        ...data,
-      } as UserProfile;
-      setProfile(merged);
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(merged));
-
-      try { await fetchProfile(); } catch {}
     } catch (err) {
-      console.error('Gagal update profile:', err);
-      throw err;
+      console.error('Gagal update profile ke server:', err);
     }
+
+    const merged: UserProfile = { ...profile, ...data } as UserProfile;
+    setProfile(merged);
+    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(merged));
   };
 
   const updateApplicantStatus = (id: string, status: 'pending' | 'diterima' | 'ditolak') => {
