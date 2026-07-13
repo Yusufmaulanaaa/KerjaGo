@@ -252,7 +252,15 @@ export function JobProvider({ children }: { children: ReactNode }) {
       if (data.companyLocation !== undefined) body.company_location = data.companyLocation;
 
       await api.put('/auth/profile', body, { headers: { 'x-user-id': auth.id } });
-      await fetchProfile();
+
+      const merged: UserProfile = {
+        ...profile,
+        ...data,
+      } as UserProfile;
+      setProfile(merged);
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(merged));
+
+      try { await fetchProfile(); } catch {}
     } catch (err) {
       console.error('Gagal update profile:', err);
       throw err;

@@ -25,7 +25,7 @@ export default function JobCard({ id, title, company, companyLogo, location, sal
   const isProfileComplete = (): boolean => {
     if (!profile) return false;
     if (profile.role === 'recruiter') return true;
-    return !!(profile.name && profile.email && profile.phone && profile.pendidikan && profile.cvFile);
+    return !!(profile.name && profile.email && profile.phone && profile.pendidikan);
   };
 
   const handleApply = (e: React.MouseEvent) => {

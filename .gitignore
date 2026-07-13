@@ -4,3 +4,6 @@ dist/
 *.local
 BE/src/generated/
 FE/.vite/
+
+.vercel
+.env*
