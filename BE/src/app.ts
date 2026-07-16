@@ -11,6 +11,7 @@ import lowonganRoutes from './routes/lowongan.routes.js';
 import preferensiRoutes from './routes/preferensi.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import careerNotesRoutes from './routes/career-notes.routes.js';
+import lamaranRoutes from './routes/lamaran.routes.js';
 
 const app = express();
 
@@ -43,6 +44,9 @@ app.use('/api/auth', authRoutes);
 
 // Career Notes — artikel & tips karir
 app.use('/api/career-notes', careerNotesRoutes);
+
+// Lamaran — pengajuan lamaran kerja pelamar
+app.use('/api/lamaran', lamaranRoutes);
 
 // ---------------------------------------------------------------------------
 // Error Handler Global

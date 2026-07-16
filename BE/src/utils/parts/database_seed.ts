@@ -72,6 +72,7 @@ export async function seedDatabase(target: number = 60, force: boolean = false):
         await client.query('DELETE FROM hasil_saw');
         await client.query('DELETE FROM hasil_wp');
         await client.query('DELETE FROM hasil_topsis');
+        await client.query('DELETE FROM lamaran');
         await client.query('DELETE FROM lowongan');
         console.log('[SEEDER] Data lama berhasil dihapus.');
       } finally {

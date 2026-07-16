@@ -26,6 +26,7 @@ model Users {
 
   profile      Profile?
   preferensi   Preferensi[]
+  lamaran      Lamaran[]
 
   @@map("users")
 }
@@ -79,7 +80,7 @@ model Lowongan {
   id_perusahaan   Int
   judul_pekerjaan String
   deskripsi       String?
-  deadline        String?   // YYYY-MM-DD
+  deadline        DateTime?   // DATE type in DB
   status          String    @default("aktif") // aktif | nonaktif
   id_tipe         Int?
   id_gaji         Int?
@@ -93,6 +94,7 @@ model Lowongan {
   hasil_saw    HasilSaw[]
   hasil_wp     HasilWp[]
   hasil_topsis HasilTopsis[]
+  lamaran      Lamaran[]
 
   @@map("lowongan")
 }
@@ -133,6 +135,7 @@ model Preferensi {
   id_preferensi Int      @id @default(autoincrement())
   id_user       String
   created_at    DateTime @default(now())
+  updated_at    DateTime? @default(now())
 
   user             Users             @relation(fields: [id_user], references: [id_user])
   detail_preferensi DetailPreferensi[]
@@ -140,6 +143,7 @@ model Preferensi {
   hasil_wp          HasilWp[]
   hasil_topsis      HasilTopsis[]
 
+  @@unique([id_user])
   @@map("preferensi")
 }
 
@@ -208,6 +212,24 @@ model HasilTopsis {
   lowongan   Lowongan   @relation(fields: [id_lowongan], references: [id_lowongan])
 
   @@map("hasil_topsis")
+}
+
+// ============================================================================
+// LAMARAN — Riwayat lamaran kerja pelamar (Many-to-Many: users ↔ lowongan)
+// ============================================================================
+model Lamaran {
+  id_lamaran  Int      @id @default(autoincrement())
+  id_user     String
+  id_lowongan Int
+  status      String   @default("pending") // pending | diterima | ditolak
+  pesan       String?
+  created_at  DateTime @default(now())
+
+  user     Users    @relation(fields: [id_user], references: [id_user])
+  lowongan Lowongan @relation(fields: [id_lowongan], references: [id_lowongan])
+
+  @@unique([id_user, id_lowongan])
+  @@map("lamaran")
 }
 
 // ============================================================================

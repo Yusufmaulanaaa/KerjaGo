@@ -17,7 +17,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const connectionString: string =
   process.env.DATABASE_URL ||
-  'postgresql://postgres.pwamtywehxnhjhfkvdwa:Alief%20Satrio@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true';
+  'postgresql://postgres.pwamtywehxnhjhfkvdwa:kerjaayo123@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true';
 
 export const pool = new pg.Pool({
   connectionString,
